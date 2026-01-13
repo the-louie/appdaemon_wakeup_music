@@ -1,0 +1,95 @@
+# AppDaemon Configuration for Wakeup Music App
+# This file configures the WakeupMusic app to play music at scheduled wakeup times
+# This is an example configuration file - copy to config.yaml and customize with your own values
+
+i1_wakeup_music:
+  module: i1_wakeup_music
+  class: WakeupMusic
+
+  # Calendar entity for exceptions (optional)
+  # Set to null/None if no calendar exceptions needed
+  # calendar: "calendar.school_holidays"
+
+  # List of media player entities to play music on
+  media_players:
+    - media_player.mass_voice_bedroom
+    - media_player.mass_voice_kitchen
+    # Add more media players as needed
+    # - media_player.living_room_speaker
+
+  # Daily schedule configuration
+  days:
+    monday:
+      active: true
+      start: "6:40"      # Start time for music playback
+      turnoff: "7:10"    # Time to stop music (optional, uses play_duration if not specified)
+    tuesday:
+      active: true
+      start: "6:40"
+      turnoff: "7:10"
+    wednesday:
+      active: true
+      start: "6:40"
+      turnoff: "7:10"
+    thursday:
+      active: true
+      start: "6:40"
+      turnoff: "7:10"
+    friday:
+      active: true
+      start: "6:40"
+      turnoff: "7:10"
+    saturday:
+      active: false      # No wakeup music on weekends
+    sunday:
+      active: false      # No wakeup music on weekends
+
+  # Music source/playlist to play (format depends on media player type)
+  # Examples:
+  # Standard formats:
+  # - "spotify:playlist:37i9dQZF1DXcBWIGoYBM5M" (Spotify playlist, standard format)
+  # - "https://music.youtube.com/playlist?list=PLAYLIST_ID" (YouTube Music playlist)
+  # - "https://music.youtube.com/watch?v=VIDEO_ID" (YouTube Music track)
+  # - "https://music.youtube.com/album/ALBUM_ID" (YouTube Music album)
+  # - "youtube_music:playlist:PLAYLIST_ID" (YouTube Music playlist, simplified)
+  # - "youtube_music:track:VIDEO_ID" (YouTube Music track, simplified)
+  # - "youtube_music:album:ALBUM_ID" (YouTube Music album, simplified)
+  # - "http://stream.example.com/music.mp3" (URL)
+  # - "library://music/playlist.m3u" (local library)
+  # Music Assistant formats (for authenticated services):
+  # - "spotify://playlist/37i9dQZF1DX7cZxYLqLUJl" (Spotify playlist, MA format)
+  # - "spotify://album/ALBUM_ID" (Spotify album, MA format)
+  # - "spotify://artist/ARTIST_ID" (Spotify artist, MA format)
+  # - "spotify://track/TRACK_ID" (Spotify track, MA format)
+  # - "https://open.spotify.com/playlist/..." (Spotify URL, MA supports)
+  # - "We Are The Champions" (Track name, MA will search - requires media_type)
+  # - "library://artist/1" (Library URI, MA format)
+  # - "library://album/20" (Library URI, MA format)
+  # Note: For authenticated YouTube Music playback (to avoid ads), configure authentication
+  # in your YouTube Music integration (ytube_music_player or Music Assistant) in Home Assistant.
+  # Note: For authenticated Spotify playback, use Music Assistant integration with MA-formatted
+  # media sources. Standard spotify:playlist: format may not work with authenticated accounts.
+  # Authentication is configured at the integration level, not in this config.yaml file.
+  music_source: "spotify://playlist/37i9dQZF1DX7cZxYLqLUJl"
+
+  # Music Assistant configuration (optional)
+  use_music_assistant: true  # Force MA usage (auto-detected if not specified based on player entity IDs)
+  # music_assistant_config_entry_id: "Music Assistant"  # MA instance ID for multi-instance setups
+  enqueue: "replace"  # How media interacts with queue: play, replace, next, replace_next, add
+  # radio_mode: false  # Enable radio mode for auto-generated playlists (requires supported provider)
+  # media_type: null  # Content type: artist, album, track, playlist, radio (auto-determined if omitted)
+
+  # Initial volume when music starts (0.0 to 1.0)
+  initial_volume: 0.0
+
+  # Target volume after ramping (0.0 to 1.0)
+  target_volume: 0.5
+
+  # Duration of volume ramp in seconds
+  ramp_duration: 900
+
+  # Number of steps in volume ramp (more steps = smoother ramp)
+  ramp_steps: 30
+
+  # Duration to continue playing after ramp completes (in seconds, 0 = play until manually stopped)
+  play_duration: 900
