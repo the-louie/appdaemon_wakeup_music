@@ -112,6 +112,7 @@ class WakeupMusic(hass.Hass):
             self.error_state = False
             self.active_media_players = []
             self.ma_player_cache = {}
+            self.original_volumes = {}
 
             # Detect Music Assistant players and log player types
             ma_players = []
@@ -543,6 +544,9 @@ class WakeupMusic(hass.Hass):
             # Stop any existing playback on media players
             self._stop_existing_playback()
 
+            # Store original volume levels before any volume changes occur
+            self._store_original_volumes()
+
             # Track successful playback starts
             playback_success = False
             self.log(f"Attempting to start playback on {len(self.media_players)} media player(s): {self.media_players}", level="INFO")
@@ -572,6 +576,8 @@ class WakeupMusic(hass.Hass):
                 self.log("No media players started successfully, aborting wakeup music", level="ERROR")
                 self.error_state = True
                 self.is_playing = False
+                # Clear stored volumes since playback never started (we never changed them)
+                self.original_volumes = {}
 
         except Exception as e:
             error_line = traceback.extract_tb(e.__traceback__)[-1].lineno
@@ -579,6 +585,8 @@ class WakeupMusic(hass.Hass):
             self.log(traceback.format_exc(), level="ERROR")
             self.error_state = True
             self.is_playing = False
+            # Clear stored volumes since playback failed to start (we never changed them)
+            self.original_volumes = {}
 
     def _stop_existing_playback(self):
         """Stop any existing playback on configured media players."""
@@ -591,6 +599,55 @@ class WakeupMusic(hass.Hass):
             except Exception as e:
                 error_line = traceback.extract_tb(e.__traceback__)[-1].lineno
                 self.log(f"Error stopping playback on {media_player} at line {error_line}: {str(e)}", level="WARNING")
+
+    def _store_original_volumes(self):
+        """Store original volume levels for all media players before playback starts."""
+        self.original_volumes = {}
+        for media_player in self.media_players:
+            try:
+                state = self.get_state(media_player, attribute="all")
+                if state and isinstance(state, dict):
+                    attributes = state.get("attributes", {})
+                    volume_level = attributes.get("volume_level")
+                    if volume_level is not None:
+                        self.original_volumes[media_player] = float(volume_level)
+                        self.log(f"Stored original volume for {media_player}: {volume_level:.3f}", level="INFO")
+                    else:
+                        self.original_volumes[media_player] = None
+                        self.log(f"Volume level not available for {media_player}, storing None", level="WARNING")
+                else:
+                    self.original_volumes[media_player] = None
+                    self.log(f"State not available for {media_player}, storing None", level="WARNING")
+            except Exception as e:
+                error_line = traceback.extract_tb(e.__traceback__)[-1].lineno
+                self.original_volumes[media_player] = None
+                self.log(f"Error storing volume for {media_player} at line {error_line}: {str(e)}", level="WARNING")
+
+    def _restore_original_volumes(self):
+        """Restore original volume levels for all media players after playback stops."""
+        if not self.original_volumes:
+            self.log("No original volumes to restore", level="INFO")
+            return
+
+        self.log("Restoring original volumes for media players", level="INFO")
+        for media_player, volume_level in self.original_volumes.items():
+            if volume_level is None:
+                self.log(f"Skipping volume restoration for {media_player} (volume was not stored)", level="INFO")
+                continue
+
+            try:
+                self.call_service(
+                    "media_player/volume_set",
+                    entity_id=media_player,
+                    volume_level=volume_level
+                )
+                self.log(f"Restored original volume for {media_player}: {volume_level:.3f}", level="INFO")
+            except Exception as e:
+                error_line = traceback.extract_tb(e.__traceback__)[-1].lineno
+                self.log(f"Error restoring volume for {media_player} at line {error_line}: {str(e)}", level="WARNING")
+
+        # Clear the dictionary after restoration
+        self.original_volumes = {}
 
     def _verify_and_start_ramp(self, kwargs):
         """
@@ -1271,6 +1328,9 @@ class WakeupMusic(hass.Hass):
                                 error_line = traceback.extract_tb(e.__traceback__)[-1].lineno
                                 self.log(f"Error stopping playback on {media_player} at line {error_line}: {str(e)}", level="WARNING")
 
+                        # Restore original volumes after playback stops
+                        self._restore_original_volumes()
+
                         # Update state tracking
                         self.stop_playback_handle = None
                         self.is_playing = False
@@ -1318,6 +1378,9 @@ class WakeupMusic(hass.Hass):
                 except Exception as e:
                     error_line = traceback.extract_tb(e.__traceback__)[-1].lineno
                     self.log(f"Error stopping playback on {media_player} at line {error_line}: {str(e)}", level="WARNING")
+
+            # Restore original volumes after playback stops
+            self._restore_original_volumes()
 
             self.stop_playback_handle = None
             self.is_playing = False
