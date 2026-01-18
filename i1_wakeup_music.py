@@ -1256,6 +1256,27 @@ class WakeupMusic(hass.Hass):
                         self.fadeout_volume_handle = None
                         self.log(f"Volume fade-out completed at {fadeout_volume:.3f}", level="INFO")
 
+                        # Cancel scheduled stop timer if it exists (fade-out completes before scheduled stop)
+                        if self.stop_playback_handle:
+                            self.cancel_timer(self.stop_playback_handle)
+                            self.stop_playback_handle = None
+
+                        # Stop playback immediately after fade-out completes
+                        self.log("Stopping playback after fade-out completion", level="INFO")
+                        for media_player in self.media_players:
+                            try:
+                                self.call_service("media_player/media_stop", entity_id=media_player)
+                                self.log(f"Stopped playback on {media_player}", level="INFO")
+                            except Exception as e:
+                                error_line = traceback.extract_tb(e.__traceback__)[-1].lineno
+                                self.log(f"Error stopping playback on {media_player} at line {error_line}: {str(e)}", level="WARNING")
+
+                        # Update state tracking
+                        self.stop_playback_handle = None
+                        self.is_playing = False
+                        self.error_state = False
+                        self.active_media_players = []
+
                 except Exception as e:
                     error_line = traceback.extract_tb(e.__traceback__)[-1].lineno
                     self.log(f"Error in volume fade-out step at line {error_line}: {str(e)}", level="ERROR")
@@ -1275,6 +1296,12 @@ class WakeupMusic(hass.Hass):
     def _stop_playback_after_duration(self, kwargs):
         """Stop playback on all media players after the scheduled duration."""
         try:
+            # Check if playback has already been stopped (e.g., by fade-out completion)
+            if not self.is_playing:
+                self.log("Playback already stopped (likely by fade-out completion), skipping scheduled stop", level="INFO")
+                self.stop_playback_handle = None
+                return
+
             # Get duration from kwargs if provided, otherwise use play_duration
             duration_seconds = kwargs.get("duration_seconds", self.play_duration) if kwargs else self.play_duration
             stop_reason = kwargs.get("stop_reason", "play_duration") if kwargs else "play_duration"
